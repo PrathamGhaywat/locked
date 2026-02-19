@@ -67,9 +67,9 @@ func printUsage() {
 	fmt.Printf(`%s v%s - Ultra secure file locker
 	
 Usage:
-%s lock <file or folder>	 Lock a file or folder
-%s unlock <file.locker>		Unlock a .locker file
-%s version							Show Version
-%s help								  Show help message
+%s lock <file or folder>  Lock a file or folder
+%s unlock <file.locker>	Unlock a .locker file
+%s version	Show Version
+%s help		Show help message
 `, AppName, Version, AppName, AppName,  AppName,  AppName)
 }
