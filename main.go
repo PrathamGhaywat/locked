@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
+
+	"github.com/PrathamGhaywat/locked/pkg/vault"
 )
 
 const (
@@ -37,39 +41,112 @@ func main() {
 
 func handleLock(args []string) {
 	fs := flag.NewFlagSet("lock", flag.ExitOnError)
+	fs.Usage = func() {
+		fmt.Println("Usage: locked lock [options] <file or folder>")
+		fmt.Println("\nOptions:")
+		fs.PrintDefaults()
+	}
+
+	outputFlag := fs.String("o", "", "Output file (default: <input>.locker)")
 	fs.Parse(args)
 
 	if fs.NArg() == 0 {
-		fmt.Printf("Usage: locked lock <file or folder>")
+		fs.Usage()
 		os.Exit(1)
 	}
 
-	path := fs.Arg(0)
-	fmt.Printf("Locking: %s\n", path)
-	fmt.Println("TODO")
+	inputPath := fs.Arg(0)
+	outputPath := *outputFlag
+
+	// Set default output path if not specified
+	if outputPath == "" {
+		outputPath = inputPath + ".locker"
+	}
+
+	// Get password from user
+	password, err := getPassword("Enter password: ")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Locking: %s\n", inputPath)
+
+	err = vault.CreateLocker(inputPath, outputPath, password)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Successfully locked to: %s\n", outputPath)
 }
 
 func handleUnlock(args []string) {
 	fs := flag.NewFlagSet("unlock", flag.ExitOnError)
+	fs.Usage = func() {
+		fmt.Println("Usage: locked unlock [options] <file.locker>")
+		fmt.Println("\nOptions:")
+		fs.PrintDefaults()
+	}
+
+	outputFlag := fs.String("o", "", "Output file (default: original filename)")
 	fs.Parse(args)
 
 	if fs.NArg() == 0 {
-		fmt.Println("Usage: locked unlock <file.locker>")
+		fs.Usage()
 		os.Exit(1)
 	}
 
-	path := fs.Arg(0)
-	fmt.Printf("Unlocking: %s\n", path)
-	fmt.Println("TODO")
+	lockerPath := fs.Arg(0)
+	outputPath := *outputFlag
+
+	// If no output path specified, extract original filename from header
+	if outputPath == "" {
+		var err error
+		outputPath, err = vault.GetOriginalFilename(lockerPath)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	// Get password from user
+	password, err := getPassword("Enter password: ")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Unlocking: %s\n", lockerPath)
+
+	err = vault.OpenLocker(lockerPath, outputPath, password)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Successfully unlocked to: %s\n", outputPath)
+}
+
+// getPassword reads a password from user input without echoing.
+func getPassword(prompt string) (string, error) {
+	fmt.Print(prompt)
+	reader := bufio.NewReader(os.Stdin)
+	password, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(password), nil
 }
 
 func printUsage() {
 	fmt.Printf(`%s v%s - Ultra secure file locker
-	
+
 Usage:
-%s lock <file or folder>  Lock a file or folder
-%s unlock <file.locker>	Unlock a .locker file
-%s version	Show Version
-%s help		Show help message
-`, AppName, Version, AppName, AppName,  AppName,  AppName)
+  %s lock [options] <file>         Lock a file
+  %s unlock [options] <file.locker> Unlock a .locker file
+  %s version                        Show version
+  %s help                           Show this help message
+
+`, AppName, Version, AppName, AppName, AppName, AppName)
 }
