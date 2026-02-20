@@ -15,20 +15,35 @@ Make sure you have Go installed on your system. Then, you can clone the reposito
 git clone https://github.com/PrathamGhaywat/locked.git
 cd locked
 go build -o locked . #windows users should use `go build -o locked.exe .`
+# if you are on linux, you need to make it executable: chmod +x locked
 ```
 
 ## Usage
+### Windows
+You have to rename the binary from e.g `locked-windows-arm64.exe`/`locked-windows-amd64.exe`/`locked-windows-386.exe` to `locked.exe` and then you can use it as following:
+
+Locking:
+```bash
+locked.exe lock myfile.txt #creates a myfile.txt.locker file and prompts for a password
+```
+
+Unlocking:
+```bash
+locked.exe unlock myfile.txt.locker #restores the original myfile.txt file and prompts for the password for decryption
+```
+
+### Linux
 To lock a file:
 ```bash
-./locked lock myfile.txt #creates a myfile.txt.locker file and prompts for a password
+locked lock myfile.txt #creates a myfile.txt.locker file and prompts for a password
 ```
 To unlock a file:
 ```bash
-./locked unlock myfile.txt.locker #restores the original myfile.txt file and prompts for the password for decryption
+locked unlock myfile.txt.locker #restores the original myfile.txt file and prompts for the password for decryption
 ```
 
 To get an overview of all available commands and options:
 ```bash
-./locked help
+locked help
 ```
-I recommend adding the `locked` binary to your system's PATH for easier access and also renaming the binary from e.g locked-windows-arm64.exe to just locked.exe or respective names for other platforms.
+I recommend adding the `locked` binary (you have to give the folder path where the binary is located) to your system's PATH for easier access and also renaming the binary from e.g locked-windows-arm64.exe to just locked.exe or respective names for other platforms.
