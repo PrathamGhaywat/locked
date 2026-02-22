@@ -7,18 +7,19 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/PrathamGhaywat/locked/pkg/crypto"
 )
 
 const (
-	//magic bytes to identify .locker files
+	// Magic bytes to identify .locker files
 	LockerMagic = "LCKR"
-	//format version (current)
+	// Format version (current)
 	LockerVersion = 1
 )
 
-// contains metadata about locked file.
+// LockerHeader contains metadata about locked file.
 type LockerHeader struct {
 	Magic            [4]byte // "LCKR"
 	Version          uint16
@@ -27,9 +28,9 @@ type LockerHeader struct {
 	OriginalFileSize int64
 }
 
-// encrypts a file and creates .locker file
+// CreateLocker encrypts a file and creates a .locker file, then deletes the original.
 func CreateLocker(inputPath string, outputPath string, password string) error {
-	//validate input
+	// Validate inputs
 	fileInfo, err := os.Stat(inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to stat input file: %w", err)
@@ -39,30 +40,30 @@ func CreateLocker(inputPath string, outputPath string, password string) error {
 		return fmt.Errorf("use LockFolder for directories, not CreateLocker")
 	}
 
-	//generate salt
+	// Generate salt
 	salt, err := crypto.GenerateSalt()
 	if err != nil {
 		return fmt.Errorf("failed to generate salt: %w", err)
 	}
 
-	//derive encryption key from password
+	// Derive encryption key from password
 	key := crypto.DeriveKey(password, salt)
 
-	//open input file
+	// Open input file
 	inputFile, err := os.Open(inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to open input file: %w", err)
 	}
 	defer inputFile.Close()
 
-	//output .locker file
+	// Create output .locker file
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer outputFile.Close()
 
-	//write header
+	// Write header
 	header := LockerHeader{
 		Magic:            [4]byte{byte(LockerMagic[0]), byte(LockerMagic[1]), byte(LockerMagic[2]), byte(LockerMagic[3])},
 		Version:          LockerVersion,
@@ -77,41 +78,57 @@ func CreateLocker(inputPath string, outputPath string, password string) error {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
+	// Encrypt and write file contents
 	err = crypto.EncryptStream(key, inputFile, outputFile)
 	if err != nil {
 		os.Remove(outputPath)
 		return fmt.Errorf("failed to encrypt file: %w", err)
 	}
 
+	inputFile.Close()
+
+	// Delete the original file after successful encryption
+	err = os.Remove(inputPath)
+	if err != nil {
+		return fmt.Errorf("failed to delete original file: %w", err)
+	}
+
 	return nil
 }
 
-// decrypts .locker file
+// OpenLocker decrypts a .locker file with "_unlocked" suffix.
 func OpenLocker(lockerPath string, outputPath string, password string) error {
-	//open locker file
+	// Open .locker file
 	lockerFile, err := os.Open(lockerPath)
 	if err != nil {
 		return fmt.Errorf("failed to open locker file: %w", err)
 	}
 	defer lockerFile.Close()
 
-	//read + validate header
+	// Read and validate header
 	header, err := readHeader(lockerFile)
 	if err != nil {
 		return fmt.Errorf("failed to read header: %w", err)
 	}
 
-	//derive key using stored salt
+	// If no output path specified, use original filename with "_unlocked" suffix
+	if outputPath == "" {
+		ext := filepath.Ext(header.OriginalFilename)
+		name := strings.TrimSuffix(header.OriginalFilename, ext)
+		outputPath = name + "_unlocked" + ext
+	}
+
+	// Derive key using stored salt
 	key := crypto.DeriveKey(password, header.Salt[:])
 
-	//create output file
+	// Create output file
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
 	defer outputFile.Close()
 
-	//decrypt and write contents
+	// Decrypt and write contents
 	err = crypto.DecryptStream(key, lockerFile, outputFile)
 	if err != nil {
 		os.Remove(outputPath)

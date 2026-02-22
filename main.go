@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/PrathamGhaywat/locked/pkg/vault"
@@ -78,7 +79,8 @@ func handleLock(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Successfully locked to: %s\n", outputPath)
+	fmt.Printf("✓ Successfully locked to: %s\n", outputPath)
+	fmt.Println("✓ Original file deleted")
 }
 
 func handleUnlock(args []string) {
@@ -89,7 +91,7 @@ func handleUnlock(args []string) {
 		fs.PrintDefaults()
 	}
 
-	outputFlag := fs.String("o", "", "Output file (default: original filename)")
+	outputFlag := fs.String("o", "", "Output file (default: <original>_unlocked.<ext>)")
 	fs.Parse(args)
 
 	if fs.NArg() == 0 {
@@ -100,14 +102,19 @@ func handleUnlock(args []string) {
 	lockerPath := fs.Arg(0)
 	outputPath := *outputFlag
 
-	// If no output path specified, extract original filename from header
+	// If no output path specified, extract original filename with "_unlocked" suffix
 	if outputPath == "" {
 		var err error
-		outputPath, err = vault.GetOriginalFilename(lockerPath)
+		originalFilename, err := vault.GetOriginalFilename(lockerPath)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 			os.Exit(1)
 		}
+
+		// Add "_unlocked" before file extension
+		ext := filepath.Ext(originalFilename)
+		name := strings.TrimSuffix(originalFilename, ext)
+		outputPath = name + "_unlocked" + ext
 	}
 
 	// Get password from user
@@ -125,7 +132,7 @@ func handleUnlock(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Successfully unlocked to: %s\n", outputPath)
+	fmt.Printf("✓ Successfully unlocked to: %s\n", outputPath)
 }
 
 // getPassword reads a password from user input without echoing.
